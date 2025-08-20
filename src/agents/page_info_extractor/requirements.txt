@@ -1,0 +1,17 @@
+# Google Agent Development Kit (ADK)
+google-adk
+
+# Web crawling dependencies
+httpx
+selectolax
+tldextract
+
+# Configuration and data validation
+pydantic
+pydantic-settings
+
+# Google Generative AI
+google-generativeai
+
+# Async support
+asyncio-mqtt
