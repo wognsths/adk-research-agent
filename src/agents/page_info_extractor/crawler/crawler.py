@@ -28,7 +28,7 @@ import httpx
 from selectolax.parser import HTMLParser
 import tldextract
 
-from config import (
+from .config import (
     MAX_PAGES, CONCURRENCY, TIMEOUT, MAX_BYTES,
     ALLOWED_HTML, RESPECT_ROBOTS, EXCLUDE_REGEX
 )

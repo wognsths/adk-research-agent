@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 from typing import List
 
-from config import Settings
-from eval import PageInfoExtractor
+from .config import Settings
+from .eval import PageInfoExtractor
 
 
 def _glob_htmls(pages_dir: Path, pattern: str, limit: int | None) -> List[Path]:

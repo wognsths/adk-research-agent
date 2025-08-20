@@ -10,7 +10,8 @@ from typing import Iterable, List, Any
 from google import genai
 from google.genai import types, errors
 
-from config import Settings
+from .config import Settings
+from .html_processor import HTMLProcessor
 
 
 # Explicit JSON schema: ARRAY of OBJECTs
@@ -37,21 +38,34 @@ SYSTEM_INSTRUCTION = (
 )
 
 
-def _build_contents(query: str, html_text: str) -> List[types.Content]:
-    return [
-        types.Content(
-            role="user",
-            parts=[
-                types.Part(text=f"QUERY:\n{query}"),
-                types.Part(
-                    inline_data=types.Blob(
-                        mime_type="text/html",
-                        data=html_text.encode("utf-8"),
-                    )
-                ),
-            ],
-        )
-    ]
+def _build_contents(query: str, html_text: str, preprocess: bool = True) -> List[types.Content]:
+    # Preprocess HTML to extract clean text content
+    if preprocess:
+        clean_text = HTMLProcessor.clean_html(html_text)
+        content_text = f"QUERY:\n{query}\n\nCLEANED CONTENT:\n{clean_text}"
+        
+        return [
+            types.Content(
+                role="user",
+                parts=[types.Part(text=content_text)],
+            )
+        ]
+    else:
+        # Use original HTML format if preprocessing is disabled
+        return [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part(text=f"QUERY:\n{query}"),
+                    types.Part(
+                        inline_data=types.Blob(
+                            mime_type="text/html",
+                            data=html_text.encode("utf-8"),
+                        )
+                    ),
+                ],
+            )
+        ]
 
 
 @dataclass
@@ -77,7 +91,7 @@ class PageInfoExtractor:
 
     async def _evaluate_one(self, query: str, html_text: str, *, timeout_s: int | None = None) -> Any:
         timeout_s = timeout_s or self.settings.request_timeout_s
-        contents = _build_contents(query, html_text)
+        contents = _build_contents(query, html_text, preprocess=self.settings.preprocess_html)
 
         delay = 1.0
         last_err: Exception | None = None
@@ -91,8 +105,14 @@ class PageInfoExtractor:
                     ),
                     timeout=timeout_s,
                 )
+                print(resp)
+                
+                # Check if response has valid text content
+                if resp.text is None:
+                    raise ValueError(f"Response text is None. Response: {resp}")
+                
                 return json.loads(resp.text)
-            except (errors.APIError, asyncio.TimeoutError) as e:
+            except (errors.APIError, asyncio.TimeoutError, ValueError, json.JSONDecodeError) as e:
                 last_err = e
                 if attempt == self.settings.max_retries - 1:
                     raise

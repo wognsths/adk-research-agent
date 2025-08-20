@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     """
 
     # Model & API
-    model: str = Field(default="gemini-2.5-flash-lite", validation_alias="GENAI_MODEL")
+    model: str = Field(default="gemini-2.5-flash", validation_alias="GENAI_MODEL")
     # Concurrency / timeouts
     max_concurrency: int = Field(default=10, validation_alias="MAX_CONCURRENCY")
     request_timeout_s: int = Field(default=60, validation_alias="REQUEST_TIMEOUT_S")
@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     max_html_bytes: int = Field(default=2_000_000, validation_alias="MAX_HTML_BYTES")
 
     google_api_key: str | None = Field(default=None, validation_alias="GOOGLE_API_KEY")
+    # HTML preprocessing
+    preprocess_html: bool = Field(default=True, validation_alias="PREPROCESS_HTML")
+    
     model_config = SettingsConfigDict(env_file=_env_file_path(), env_file_encoding="utf-8")
 
     @classmethod

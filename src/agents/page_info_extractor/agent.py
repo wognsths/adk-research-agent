@@ -2,10 +2,11 @@ from google.adk.agents import BaseAgent, LlmAgent
 from typing import override, AsyncGenerator
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
+from google.genai.types import Content, Part
 
-from utils.util import ensure_https, coerce_to_dict
-from crawler.crawler import Crawler
-from eval.main import _amain
+from .utils.util import ensure_https, coerce_to_dict
+from .crawler.crawler import Crawler
+from .eval.main import _amain
 
 class InfoExtractorAgent(BaseAgent):
     triage_agent: LlmAgent
@@ -31,6 +32,14 @@ class InfoExtractorAgent(BaseAgent):
 
     @override
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        # Debug: Print the user's message
+        if ctx.user_content and ctx.user_content.parts:
+            user_message = ""
+            for part in ctx.user_content.parts:
+                if part.text:
+                    user_message += part.text
+            print(f"[{self.name}] User message: {user_message}")
+        
         async for event in self.triage_agent.run_async(ctx):
             print(f"[{self.name}] Running Triage...")
             yield event
@@ -38,8 +47,12 @@ class InfoExtractorAgent(BaseAgent):
         raw = ctx.session.state.get("triage_result")
         if not raw:
             print(f"[{self.name}] Failed to generate response in **triage agent** (missing triage_result)")
-            yield Event(text="Triage failed: no triage_result in state.")
+            yield Event(author=self.name, content=Content(parts=[Part(text="Triage failed: no triage_result in state.")]))
             return
+        
+        # Debug: Print triage result
+        print(f"[{self.name}] Raw triage result: {raw}")
+        print(f"[{self.name}] Triage result type: {type(raw)}")
 
         data = coerce_to_dict(raw)
 
@@ -49,29 +62,29 @@ class InfoExtractorAgent(BaseAgent):
             data["valid"] = bool(data["url"] and data["request"])
 
         if not data["valid"] or (data["valid"] == "false"):
-            yield Event(text="The request is not valid. Please try again with valid request")
+            yield Event(author=self.name, content=Content(parts=[Part(text="The request is not valid. Please try again with valid request")]))
             return
         
         url = data["url"]
         request_query = data["request"]
         
         print(f"[{self.name}] Starting crawling for URL: {url}")
-        yield Event(text=f"Starting to crawl {url} to gather information...")
+        yield Event(author=self.name, content=Content(parts=[Part(text=f"Starting to crawl {url} to gather information...")]))
         
         # Step 1: Run crawler to save HTML files locally
         crawler = Crawler(start_url=url, out_dir="./pages")
         try:
             total_pages = await crawler.run()
             print(f"[{self.name}] Crawled {total_pages} pages successfully")
-            yield Event(text=f"Successfully crawled {total_pages} pages from {url}")
+            yield Event(author=self.name, content=Content(parts=[Part(text=f"Successfully crawled {total_pages} pages from {url}")]))
         except Exception as e:
             print(f"[{self.name}] Crawler failed: {e}")
-            yield Event(text=f"Failed to crawl {url}: {str(e)}")
+            yield Event(author=self.name, content=Content(parts=[Part(text=f"Failed to crawl {url}: {str(e)}")]))
             return
         
         # Step 2: Run evaluator to extract information from local HTML files
         print(f"[{self.name}] Starting evaluation of crawled pages...")
-        yield Event(text="Analyzing crawled pages to extract relevant information...")
+        yield Event(author=self.name, content=Content(parts=[Part(text="Analyzing crawled pages to extract relevant information...")]))
         
         try:
             results = await _amain(request_query, "./pages")
@@ -86,7 +99,7 @@ class InfoExtractorAgent(BaseAgent):
                             extracted_info.extend(item['core_informations'])
             
             if not extracted_info:
-                yield Event(text="No relevant information found in the crawled pages.")
+                yield Event(author=self.name, content=Content(parts=[Part(text="No relevant information found in the crawled pages.")]))
                 return
             
             # Step 3: Pass extracted information to generator agent
@@ -96,7 +109,7 @@ class InfoExtractorAgent(BaseAgent):
             extracted_info_text = "\n".join([f"- {info}" for info in extracted_info])
             
             # Create the context message for generator
-            from utils.prompts import GENERATOR_PROMPT
+            from .utils.prompts import GENERATOR_PROMPT
             generator_prompt = GENERATOR_PROMPT.format(
                 original_query=request_query,
                 source_url=url,
@@ -117,7 +130,7 @@ class InfoExtractorAgent(BaseAgent):
                 
         except Exception as e:
             print(f"[{self.name}] Evaluation failed: {e}")
-            yield Event(text=f"Failed to analyze crawled pages: {str(e)}")
+            yield Event(author=self.name, content=Content(parts=[Part(text=f"Failed to analyze crawled pages: {str(e)}")]))
             return
 
             

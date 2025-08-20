@@ -4,7 +4,7 @@ Config for Smart HTML crawler.
 """
 
 # Crawl scale/perf
-MAX_PAGES = 50             # max pages to visit
+MAX_PAGES = 3             # max pages to visit
 CONCURRENCY = 20           # concurrent HTTP requests
 TIMEOUT = 15               # seconds
 MAX_BYTES = 2_000_000      # skip resources larger than this (bytes)

@@ -9,9 +9,10 @@ tldextract
 # Configuration and data validation
 pydantic
 pydantic-settings
+python-dotenv
 
-# Google Generative AI
-google-generativeai
+# Google Generative AI (for genai.types)
+google-genai
 
 # Async support
 asyncio-mqtt
